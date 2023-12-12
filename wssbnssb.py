@@ -35,7 +35,18 @@ async def nssb_(bot,ev):
         cs_.execute(f"SELECT * FROM blocked WHERE flag = 1 AND groupid = {s_groupid}")
         s_result1 = cs_.fetchall()
         if not s_result1:
-            await bot.send(ev,'该群暂时没有人因为指令被禁言！')
+            cs_.execute(f"SELECT * FROM blocked WHERE flag = 0 AND groupid = {s_groupid}")
+            s_result0 = cs_.fetchall()
+            if not s_result0:
+                await bot.send(ev,'该群暂时没有人因为指令被禁言！')
+            else:
+                mlist = await bot.get_group_member_list(group_id=ev.group_id)
+                msg = '还有下列群友未变成复活旗帜：'
+                for result in s_result0:
+                    for m in mlist:
+                        if int(m['user_id'])==int(result[0]):
+                            msg += f"{m['nickname']}"
+                await bot.send(ev,msg)
         else:          
             for result in s_result1:
                 ev.group_id = result[1]
@@ -77,12 +88,16 @@ async def rank_rw(qqid):
         cs_.execute(f"SELECT * FROM rank WHERE qqid = {qqid}")
         rank_result = cs_.fetchall()
         if not rank_result:
+            insert_query = "INSERT INTO rank(qqid, flag) VALUES (?, ?)"
+            data_to_insert = (qqid,1)
+            cs_.execute(insert_query, data_to_insert)
+            rank_db.commit()
             await asyncio.sleep(1)
         else:
             for result in rank_result:
                 r_adder = int(result[1]) + 1
-                insert_query = "INSERT INTO rank(qqid, flag) VALUES (?, ?)"
-                data_to_insert = (qqid,str(r_adder))
+                insert_query = "UPDATE blocked SET flag = ? WHERE qqid = ? ;"
+                data_to_insert = (str(r_adder),qqid,)
                 cs_.execute(insert_query, data_to_insert)
                 rank_db.commit()
             await asyncio.sleep(1)
@@ -94,7 +109,7 @@ async def neeb_rank(bot,ev):
     with sqlite3.connect(rank_path) as rank_db:
         cs_ = rank_db.cursor()
         cs_.execute( 'CREATE TABLE IF NOT EXISTS rank (qqid TEXT, flag TEXT)')  #保险
-        cs_.execute('SELECT * FROM rank WHERE ')
+        cs_.execute('SELECT * FROM rank')
         rank_result = cs_.fetchall()
         if not rank_result:
             await asyncio.sleep(1)
@@ -106,7 +121,7 @@ async def neeb_rank(bot,ev):
             for ct in range(l) :
                 for rank in rankcache:
                     for m in mlist:
-                        if rank[0] == m['card']:
+                        if int(rank[0])== int(m['user_id']):
                             msg += f"{m['nickname']}救人次数：{rank[1]}"
                 ct += 1
             await bot.send(ev,msg)
