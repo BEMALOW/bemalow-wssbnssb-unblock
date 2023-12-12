@@ -120,7 +120,7 @@ async def wssb_check(bot,ev):
         cs_.execute(f"SELECT * FROM blocked WHERE flag = 0 AND groupid = {s_groupid}")
         s_result0 = cs_.fetchall()
         if not s_result0:
-            await bot.send(ev,'该群现在暂时没有人因为指令被禁言！')
+            await bot.send(ev,'该群现在暂时没有人因为被禁言！')
         else:
             mlist = await bot.get_group_member_list(group_id=ev.group_id)
             msg = '还有下列群友未变成复活旗帜：\n'
@@ -141,27 +141,9 @@ async def wssb_autoclean():
 
 @sv.on_notice('group_ban')
 async def wssb_claen(ev):
-    s_groupid = ev.event['group_id']
-    with sqlite3.connect(file_path) as sil_db:
-        cs_ = sil_db.cursor()
-        cs_.execute( 'CREATE TABLE IF NOT EXISTS blocked (qqid TEXT, groupid TEXT, 禁言时间 TEXT ,flag TEXT)')
-        cs_.execute(f"SELECT * FROM blocked WHERE groupid = {s_groupid}")
-        s_result0 = cs_.fetchall()
-        if not s_result0:
-            if ev.event['duration'] == -1 or ev.event['duration'] == 268435455:
-                cs_.execute(f"DELETE FROM blocked WHERE groupid = {s_groupid}")
-                sil_db.commit()
-                await ev.send("大赦天下。")
-            if ev.event['sub_type'] == "lift_ban":
-                cs_.execute("UPDATE blocked SET flag = '1' WHERE groupid = ?;",(s_groupid,))
-                sil_db.commit()
-                await ev.send("管理已将被禁言的群友变为复活旗帜,请输入'nssb'复活他们。")
-
-@sv.on_notice('group_ban')
-async def manager_rw(ev):
-     if ev.event['sub_type'] == "ban" and ev.event['user_id'] != 0:
-        qqid = ev.event['user_id']
-        groupid = ev.event['group_id']
+    qqid = ev.event['user_id']
+    groupid = ev.event['group_id']
+    if ev.event['sub_type'] == "ban" and ev.event['user_id'] != 0:
         with sqlite3.connect(file_path) as sil_db:
             cs_ = sil_db.cursor()
             sqqid = str(qqid)
@@ -172,5 +154,22 @@ async def manager_rw(ev):
             data_to_insert = (qqid, groupid,last_sil_time,0)
             cs_.execute(insert_query, data_to_insert)
             sil_db.commit()
-
             await asyncio.sleep(1)
+    else:
+        s_groupid = ev.event['group_id']
+        with sqlite3.connect(file_path) as sil_db:
+            cs_ = sil_db.cursor()
+            cs_.execute( 'CREATE TABLE IF NOT EXISTS blocked (qqid TEXT, groupid TEXT, 禁言时间 TEXT ,flag TEXT)')
+            cs_.execute(f"SELECT * FROM blocked WHERE groupid = {s_groupid}")
+            s_result0 = cs_.fetchall()
+            if not s_result0:
+                await ev.send("'该群现在暂时没有人因为被禁言！'")
+            else:
+                if ev.event['sub_type'] == "ban" and ev.event['user_id'] == 0:
+                    cs_.execute(f"DELETE FROM blocked WHERE groupid = {s_groupid}")
+                    sil_db.commit()
+                    await ev.send("大赦天下。")
+                if ev.event['sub_type'] == "lift_ban" and ev.event['user_id'] != 0:
+                    cs_.execute("UPDATE blocked SET flag = '1' WHERE groupid = ? ;",(s_groupid,))
+                    sil_db.commit()
+                    await ev.send("管理已将被禁言的群友变为复活旗帜,请输入'nssb'复活他们。")
