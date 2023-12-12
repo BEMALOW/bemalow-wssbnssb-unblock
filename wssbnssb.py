@@ -129,3 +129,48 @@ async def wssb_check(bot,ev):
                     if int(m['user_id'])==int(result[0]):
                         msg += f"{m['nickname']}\n"
             await bot.send(ev,msg)
+
+@sv.scheduled_job('cron', hour='4')
+async def wssb_autoclean():
+    with sqlite3.connect(file_path) as sil_db:
+        cs_ = sil_db.cursor()
+        cs_.execute( 'CREATE TABLE IF NOT EXISTS blocked (qqid TEXT, groupid TEXT, 禁言时间 TEXT ,flag TEXT)')
+        cs_.execute("UPDATE blocked SET flag = '1' ")
+        sil_db.commit()
+    await asyncio.sleep(1)
+
+@sv.on_notice('group_ban')
+async def wssb_claen(ev):
+    s_groupid = ev.event['group_id']
+    with sqlite3.connect(file_path) as sil_db:
+        cs_ = sil_db.cursor()
+        cs_.execute( 'CREATE TABLE IF NOT EXISTS blocked (qqid TEXT, groupid TEXT, 禁言时间 TEXT ,flag TEXT)')
+        cs_.execute(f"SELECT * FROM blocked WHERE groupid = {s_groupid}")
+        s_result0 = cs_.fetchall()
+        if not s_result0:
+            if ev.event['duration'] == -1 or ev.event['duration'] == 268435455:
+                cs_.execute(f"DELETE FROM blocked WHERE groupid = {s_groupid}")
+                sil_db.commit()
+                await ev.send("大赦天下。")
+            if ev.event['sub_type'] == "lift_ban":
+                cs_.execute("UPDATE blocked SET flag = '1' WHERE groupid = ?;",(s_groupid,))
+                sil_db.commit()
+                await ev.send("管理已将被禁言的群友变为复活旗帜,请输入'nssb'复活他们。")
+
+@sv.on_notice('group_ban')
+async def manager_rw(ev):
+     if ev.event['sub_type'] == "ban" and ev.event['user_id'] != 0:
+        qqid = ev.event['user_id']
+        groupid = ev.event['group_id']
+        with sqlite3.connect(file_path) as sil_db:
+            cs_ = sil_db.cursor()
+            sqqid = str(qqid)
+            cs_.execute( 'CREATE TABLE IF NOT EXISTS blocked (qqid TEXT, groupid TEXT, 禁言时间 TEXT, flag TEXT)')
+            last_sil_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            insert_query = "INSERT INTO blocked(qqid,groupid,禁言时间,flag) VALUES (?, ?, ?, ?)"
+            data_to_insert = (qqid, groupid,last_sil_time,0)
+            cs_.execute(insert_query, data_to_insert)
+            sil_db.commit()
+
+            await asyncio.sleep(1)
