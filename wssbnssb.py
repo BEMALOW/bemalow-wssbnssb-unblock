@@ -120,7 +120,7 @@ async def wssb_check(bot,ev):
         cs_.execute(f"SELECT * FROM blocked WHERE flag = 0 AND groupid = {s_groupid}")
         s_result0 = cs_.fetchall()
         if not s_result0:
-            await bot.send(ev,'该群现在暂时没有人因为被禁言！')
+            await bot.send(ev,'该群现在暂时没有人被禁言！')
         else:
             mlist = await bot.get_group_member_list(group_id=ev.group_id)
             msg = '还有下列群友未变成复活旗帜：\n'
@@ -162,8 +162,8 @@ async def wssb_claen(ev):
             cs_.execute( 'CREATE TABLE IF NOT EXISTS blocked (qqid TEXT, groupid TEXT, 禁言时间 TEXT ,flag TEXT)')
             cs_.execute(f"SELECT * FROM blocked WHERE groupid = {s_groupid}")
             s_result0 = cs_.fetchall()
-            if not s_result0:
-                await ev.send("'该群现在暂时没有人因为被禁言！'")
+            if not s_result0 and ev.event['sub_type'] == "lift_ban":
+                await ev.send("该群现在暂时没有人被禁言！")
             else:
                 if ev.event['sub_type'] == "ban" and ev.event['user_id'] == 0:
                     cs_.execute(f"DELETE FROM blocked WHERE groupid = {s_groupid}")
