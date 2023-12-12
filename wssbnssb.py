@@ -100,9 +100,10 @@ async def neeb_rank(bot,ev):
             await asyncio.sleep(1)
         else:    
             rankcache = sorted(rank_result, key=lambda x : int(x[1]), reverse=True)
-            msg='救人排行表：'
+            l = len(rankcache) if len(rankcache) < 10 else 10
+            msg='救人排行表TOP10：'
             ct = 0
-            for ct in range(len(rankcache)) :
+            for ct in range(l) :
                 for rank in rankcache:
                     for m in mlist:
                         if rank[0] == m['card']:
