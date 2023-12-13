@@ -18,9 +18,8 @@ async def sil_rw(qqid,groupid,time):
         cs_ = sil_db.cursor()
 
         last_sil_time = datetime.now()
+        last_sil_time_cache = last_sil_time
         scheduled_time_end = last_sil_time + timedelta(seconds=time)
-        scheduled_date = scheduled_time_end.date()
-        last_sil_date = last_sil_time.date()
         next_day_limit = last_sil_time.replace(hour=4, minute=0, second=0, microsecond=0) + timedelta(days=1)
         today_limit = last_sil_time.replace(hour=4, minute=0, second=0, microsecond=0 )
 
@@ -34,8 +33,8 @@ async def sil_rw(qqid,groupid,time):
         sil_db.commit()
 
         if scheduled_time_end <= next_day_limit:
-            if last_sil_date <= today_limit:
-                if scheduled_date <= today_limit:
+            if last_sil_time_cache <= today_limit:
+                if scheduled_time_end <= today_limit:
                     await add_scheduled(last_sil_time,scheduled_time)
             else:
                 await add_scheduled(last_sil_time,scheduled_time)
@@ -184,9 +183,8 @@ async def wssb_claen(ev):
         with sqlite3.connect(file_path) as sil_db:
 
             last_sil_time = datetime.now()
+            last_sil_time_cache = last_sil_time
             scheduled_time_end = last_sil_time + timedelta(seconds=ev.event['duration'])
-            scheduled_date = scheduled_time_end.date()
-            last_sil_date = last_sil_time.date()
             next_day_limit = last_sil_time.replace(hour=4, minute=0, second=0, microsecond=0) + timedelta(days=1)
             today_limit = last_sil_time.replace(hour=4, minute=0, second=0, microsecond=0 )
 
@@ -201,8 +199,8 @@ async def wssb_claen(ev):
             sil_db.commit()
 
             if scheduled_time_end <= next_day_limit:
-                if last_sil_date <= today_limit:
-                    if scheduled_date <= today_limit:
+                if last_sil_time_cache <= today_limit:
+                    if scheduled_time_end <= today_limit:
                         await add_scheduled(last_sil_time,scheduled_time)
                 else:
                     await add_scheduled(last_sil_time,scheduled_time)
