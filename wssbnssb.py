@@ -16,15 +16,31 @@ scheduler = AsyncIOScheduler() #创建一个实例
 async def sil_rw(qqid,groupid,time):
     with sqlite3.connect(file_path) as sil_db:
         cs_ = sil_db.cursor()
-        sqqid = str(qqid)
+
+        last_sil_time = datetime.now()
+        scheduled_time_end = last_sil_time + timedelta(seconds=time)
+        scheduled_date = scheduled_time_end.date()
+        last_sil_date = last_sil_time.date()
+        next_day_limit = last_sil_time.replace(hour=4, minute=0, second=0, microsecond=0) + timedelta(days=1)
+        today_limit = last_sil_time.replace(hour=4, minute=0, second=0, microsecond=0 )
+
+        scheduled_time = scheduled_time_end.strftime("%Y-%m-%d %H:%M:%S")
+        last_sil_time = last_sil_time.strftime("%Y-%m-%d %H:%M:%S")
+
         cs_.execute( 'CREATE TABLE IF NOT EXISTS blocked (qqid TEXT, groupid TEXT, 禁言时间 TEXT, flag TEXT)')
-        last_sil_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        insert_query = "INSERT INTO blocked(qqid,groupid,禁言时间,flag) VALUES (?, ?, ?, ?)"
+        data_to_insert = (qqid, groupid,last_sil_time,0)
         cs_.execute(insert_query, data_to_insert)
         sil_db.commit()
-        last_sil_time_cache = datetime.strptime(last_sil_time, "%Y-%m-%d %H:%M:%S")
-        scheduled_time_cache = last_sil_time_cache + timedelta(seconds=ev.event['duration'])
-        scheduled_time = scheduled_time_cache.strftime("%Y-%m-%d %H:%M:%S")
-        await add_scheduled(last_sil_time,scheduled_time)
+
+        if scheduled_time_end <= next_day_limit:
+            if last_sil_date <= today_limit:
+                if scheduled_date <= today_limit:
+                    await add_scheduled(last_sil_time,scheduled_time)
+            else:
+                await add_scheduled(last_sil_time,scheduled_time)
+
+                
         await asyncio.sleep(1)
 
 async def add_scheduled(s_time,time):
@@ -166,18 +182,31 @@ async def wssb_claen(ev):
     groupid = ev.event['group_id']
     if ev.event['sub_type'] == "ban" and ev.event['user_id'] != 0:
         with sqlite3.connect(file_path) as sil_db:
+
+            last_sil_time = datetime.now()
+            scheduled_time_end = last_sil_time + timedelta(seconds=ev.event['duration'])
+            scheduled_date = scheduled_time_end.date()
+            last_sil_date = last_sil_time.date()
+            next_day_limit = last_sil_time.replace(hour=4, minute=0, second=0, microsecond=0) + timedelta(days=1)
+            today_limit = last_sil_time.replace(hour=4, minute=0, second=0, microsecond=0 )
+
+            scheduled_time = scheduled_time_end.strftime("%Y-%m-%d %H:%M:%S")
+            last_sil_time = last_sil_time.strftime("%Y-%m-%d %H:%M:%S")
+
             cs_ = sil_db.cursor()
-            sqqid = str(qqid)
             cs_.execute( 'CREATE TABLE IF NOT EXISTS blocked (qqid TEXT, groupid TEXT, 禁言时间 TEXT, flag TEXT)')
-            last_sil_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             insert_query = "INSERT INTO blocked(qqid,groupid,禁言时间,flag) VALUES (?, ?, ?, ?)"
             data_to_insert = (qqid, groupid,last_sil_time,0)
             cs_.execute(insert_query, data_to_insert)
             sil_db.commit()
-            last_sil_time_cache = datetime.strptime(last_sil_time, "%Y-%m-%d %H:%M:%S")
-            scheduled_time_cache = last_sil_time_cache + timedelta(seconds=ev.event['duration'])
-            scheduled_time = scheduled_time_cache.strftime("%Y-%m-%d %H:%M:%S")
-            await add_scheduled(last_sil_time,scheduled_time)
+
+            if scheduled_time_end <= next_day_limit:
+                if last_sil_date <= today_limit:
+                    if scheduled_date <= today_limit:
+                        await add_scheduled(last_sil_time,scheduled_time)
+                else:
+                    await add_scheduled(last_sil_time,scheduled_time)
+
             await asyncio.sleep(1)
     else:
         s_groupid = ev.event['group_id']
