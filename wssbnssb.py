@@ -3,25 +3,43 @@ from hoshino import R, Service, util, priv
 from nonebot import *
 import asyncio
 import sqlite3
-import datetime
+from datetime import datetime,timedelta
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import apscheduler
 
 sv = Service('wssbnssb', help_='解救那些玩bot被禁言的群友吧！')
 
 file_path='C:\\Users\\Administrator\\Desktop\\haru-bot-setup\\hoshino\\modules\\groupmaster\\blocked.db'
+scheduler = AsyncIOScheduler() #创建一个实例
+##文件中的s_为search_省略 sil_为silence（禁言）省略  ##为方便理解的注释
 
-async def sil_rw(qqid,groupid):
+async def sil_rw(qqid,groupid,time):
     with sqlite3.connect(file_path) as sil_db:
         cs_ = sil_db.cursor()
         sqqid = str(qqid)
         cs_.execute( 'CREATE TABLE IF NOT EXISTS blocked (qqid TEXT, groupid TEXT, 禁言时间 TEXT, flag TEXT)')
-        last_sil_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        insert_query = "INSERT INTO blocked(qqid,groupid,禁言时间,flag) VALUES (?, ?, ?, ?)"
-        data_to_insert = (qqid, groupid,last_sil_time,0)
+        last_sil_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cs_.execute(insert_query, data_to_insert)
         sil_db.commit()
-
+        last_sil_time_cache = datetime.strptime(last_sil_time, "%Y-%m-%d %H:%M:%S")
+        scheduled_time_cache = last_sil_time_cache + timedelta(seconds=ev.event['duration'])
+        scheduled_time = scheduled_time_cache.strftime("%Y-%m-%d %H:%M:%S")
+        await add_scheduled(last_sil_time,scheduled_time)
         await asyncio.sleep(1)
+
+async def add_scheduled(s_time,time):
+    scheduler.add_job(time_to_delete, 'date', run_date=time, args=(s_time,))
+    if not scheduler.running:
+        scheduler.start()
+    await asyncio.sleep(1)
+
+async def time_to_delete(search_time):
+    with sqlite3.connect(file_path) as sil_db:
+        cs_ = sil_db.cursor()
+        cs_.execute('CREATE TABLE IF NOT EXISTS blocked (qqid TEXT, groupid TEXT, 禁言时间 TEXT, flag TEXT)')
+        cs_.execute("UPDATE blocked SET flag = '1' WHERE 禁言时间 = ? ;",(search_time,))
+        sil_db.commit()
+    await asyncio.sleep(1)
 
 @sv.on_fullmatch('nssb','复活吧')
 async def nssb_(bot,ev):
@@ -30,7 +48,7 @@ async def nssb_(bot,ev):
     s_groupid = ev.group_id
     with sqlite3.connect(file_path) as sil_db:
         cs_ = sil_db.cursor()
-        cs_.execute( 'CREATE TABLE IF NOT EXISTS blocked (qqid TEXT, groupid TEXT, 禁言时间 TEXT ,flag TEXT)')
+        cs_.execute('CREATE TABLE IF NOT EXISTS blocked (qqid TEXT, groupid TEXT, 禁言时间 TEXT ,flag TEXT)')
         cs_.execute(f"SELECT * FROM blocked WHERE flag = 1 AND groupid = {s_groupid}")
         s_result1 = cs_.fetchall()
         if not s_result1:
@@ -45,6 +63,9 @@ async def nssb_(bot,ev):
             await bot.send(ev_cache,f"群友正在复活。。。。。。")
             await wssb_check(bot,ev)
             await rank_rw(s_qqid)
+
+
+
 
 @on_command('wssb')
 async def wssb_(ev):
@@ -148,12 +169,15 @@ async def wssb_claen(ev):
             cs_ = sil_db.cursor()
             sqqid = str(qqid)
             cs_.execute( 'CREATE TABLE IF NOT EXISTS blocked (qqid TEXT, groupid TEXT, 禁言时间 TEXT, flag TEXT)')
-            last_sil_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
+            last_sil_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             insert_query = "INSERT INTO blocked(qqid,groupid,禁言时间,flag) VALUES (?, ?, ?, ?)"
             data_to_insert = (qqid, groupid,last_sil_time,0)
             cs_.execute(insert_query, data_to_insert)
             sil_db.commit()
+            last_sil_time_cache = datetime.strptime(last_sil_time, "%Y-%m-%d %H:%M:%S")
+            scheduled_time_cache = last_sil_time_cache + timedelta(seconds=ev.event['duration'])
+            scheduled_time = scheduled_time_cache.strftime("%Y-%m-%d %H:%M:%S")
+            await add_scheduled(last_sil_time,scheduled_time)
             await asyncio.sleep(1)
     else:
         s_groupid = ev.event['group_id']
